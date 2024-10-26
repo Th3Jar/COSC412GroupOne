@@ -1,24 +1,58 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <title>Create Listing</title>
-    </head>
-    <body>
-        <h1>Create a new listing</h1>
-        <form action="example.html" method="post">
-            <label for="uploadImage">Upload Image: </label>
-            <input type="file" id="uploadImage" name="uploadImage" accept="image/*" required><br><br>
 
-            <label for="itemTitle">Item title: </label>
-            <input type="text" id="itemTitle" name="itemTitle" placeholder="Enter title" required><br><br>
+<head>
+    <link href="[Enter css file here]" rel="stylesheet" />
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
 
-            <label for="itemDesc">Item description: </label>
-            <input type="text" id="itemDesc" name="itemDesc" placeholder="Enter description" required><br><br>
-
-            <label for="itemPrice">Price: </label>
-            <input type="number" id="itemPrice" name="itemPrice" placeholder="Enter price" required><br><br>
-
-            <button type="submit" name="submitButton">Create Listing</button>
+<body>
+    <div class="topBar">
+        <a href="frontPage.html"><h1><img src="dormDashLogo.png" height="70px" width="70px" /> Dorm Dash</h1></a>
+        <h3>
+            <a href="/Accounts/signUp.html">Sign Up</a><br>
+            <a href="/Accounts/Login.html">Login</a>
+        </h3>
+    </div>
+    <div class="listingContainer">
+        <h2>Create a New Listing</h2>
+        <form id="listingForm">
+            <label for="title">Item Title:</label>
+            <input type="text" id="title" name="title" required><br><br>
+            <label for="description">Item Description:</label>
+            <textarea id="description" name="description" required></textarea><br><br>
+            <label for="image">Upload Image: </label>
+            <input type="file" id="image" name="image" accept="image/*"><br><br>
+            <label for="contactInfo">Contact Info: </label>
+            <textarea id="contactInfo" name="contactInfo" required></textarea><br><br>
+            <button type="submit">Create Listing</button>
         </form>
-    </body>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            $('#listingForm').on('submit', function(event) {
+                event.preventDefault();
+
+                const formData = new FormData(this);
+
+                $.ajax({
+                    type: 'POST',
+                    url: '/createListing',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        alert('Listing created successfully!');
+                        $('#listingForm')[0].reset();
+                    },
+                    error: function(error) {
+                        alert('Error creating listing: ' + error.responseText);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+
 </html>
