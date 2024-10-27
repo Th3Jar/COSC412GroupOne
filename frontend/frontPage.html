@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html lang = "en">
+<html lang="en">
 
 <head>
     <link href="frontPage.css" rel="stylesheet" />
+    <script defer src="frontPage.js"></script>
 </head>
 
 <body>
@@ -16,12 +17,10 @@
     <div class="createButton">
         <a href="createListing.html"><button>Create Listing</button></a>
     </div>
-    <div class="listingContainer">
-        <div class="listing">
-            <img src="image.jpeg" alt="Picture here">
-            <h2>Item title</h2>
-            <p>Item description</p>
-            <button class="contactBtn">Contact seller</button>
-        </div>
+
+    <div class="listingContainer" id="listingContainer">
+        <!-- Listings will be dynamically inserted here -->
     </div>
 </body>
+
+</html>

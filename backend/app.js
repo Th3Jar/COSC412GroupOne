@@ -9,10 +9,11 @@ const port = 3000;
 
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '../frontend')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-const uri = "mongodb+srv://cedesjohn56:Minecraft5656@cluster0.dkrye.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const url = "mongodb+srv://cedesjohn56:Minecraft5656@cluster0.dkrye.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
-mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect(url, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("Connected to MongoDB!"))
   .catch(err => console.error("Error connecting to MongoDB:", err));
 
@@ -43,6 +44,16 @@ app.get('/', (req, res) => {
 
 app.get('/createListing', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/createListing.html'));
+});
+
+app.get('/api/listings', async (req, res) => {
+    try {
+        const listings = await Listing.find();
+        res.json(listings);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error fetching listings');
+    }
 });
 
 app.post('/createListing', upload.single('image'), (req, res) => {
