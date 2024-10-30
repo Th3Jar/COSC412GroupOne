@@ -1,7 +1,7 @@
 function validateForm(){
-    setUsername = document.forms["loginForm"]["username"];
-    setPassword = document.forms["loginForm"]["password"];
+    let setEmail = document.forms["loginForm"]["email"].value;
+    let setPassword = document.forms["loginForm"]["password"].value;
 
-    sessionStorage.setItem("usernameKey", setUsername);
+    sessionStorage.setItem("emailKey", setEmail);
     sessionStorage.setItem("passwordKey", setPassword);
 }
