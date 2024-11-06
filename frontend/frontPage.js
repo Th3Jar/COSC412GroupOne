@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 listingDiv.className = 'listing';
 
                 const img = document.createElement('img');
-                img.src = listing.image ? `${listing.image}` : 'default-image.jpeg';
+                img.src = listing.image ? listing.image : 'defaultImage.jpeg';
                 img.alt = 'Listing Image';
 
                 const title = document.createElement('h2');

@@ -17,22 +17,14 @@ mongoose.connect(url, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("Connected to MongoDB!"))
   .catch(err => console.error("Error connecting to MongoDB:", err));
 
-  const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/');
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + '-' + file.originalname);
-    }
-});
-
+const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 const listingSchema = new mongoose.Schema({
     title: { type: String, required: true },
     description: { type: String, required: true },
-    image: { type: String, required: false },
+    image: { type: Buffer, required: false },
+    imageType: { type: String },
     contactInfo: { type: String, required: true}
 });
 
@@ -48,8 +40,14 @@ app.get('/createListing', (req, res) => {
 
 app.get('/api/listings', async (req, res) => {
     try {
-        const listings = await Listing.find();
-        res.json(listings);
+        const listing = await Listing.find();
+        const listingWithImg = listing.map(listing => {
+            return {
+                ...listing.toObject(),
+                image: listing.image ? `data:${listing.imageType};base64,${listing.image.toString('base64')}` : null
+            }
+        })
+        res.json(listingWithImg);
     } catch (err) {
         console.error(err);
         res.status(500).send('Error fetching listings');
@@ -60,7 +58,8 @@ app.post('/createListing', upload.single('image'), (req, res) => {
     const newListing = new Listing({
         title: req.body.title,
         description: req.body.description,
-        image: req.file.path,
+        image: req.file ? req.file.buffer : null,
+        imageType: req.file ? req.file.mimetype : null,
         contactInfo: req.body.contactInfo
     });
 
