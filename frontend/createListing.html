@@ -4,16 +4,30 @@
 <head>
     <link href="[Enter css file here]" rel="stylesheet" />
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.0/font/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="navbar.js" defer></script>
 </head>
-
 <body>
-    <div class="topBar">
-        <a href="frontPage.html"><h1><img src="dormDashLogo.png" height="70px" width="70px" /> Dorm Dash</h1></a>
-        <h3>
-            <a href="Accounts/signUp.html">Sign Up</a><br>
-            <a href="Accounts/Login.html">Login</a>
-        </h3>
-    </div>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="home.html">
+                <img src="images/dormDashLogo.png" alt="Dorm Dash Logo" height="40">
+                Dorm Dash
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                    aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto" id="dynamicNavbar">
+                    <!-- Dynamic Content Will Be Inserted Here -->
+                </ul>
+            </div>
+        </div>
+    </nav>
     <div class="listingContainer">
         <h2>Create a New Listing</h2>
         <form id="listingForm">
@@ -28,7 +42,6 @@
             <button type="submit">Create Listing</button>
         </form>
     </div>
-
     <script>
         $(document).ready(function() {
             $('#listingForm').on('submit', function(event) {
@@ -53,6 +66,8 @@
             });
         });
     </script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
 </html>

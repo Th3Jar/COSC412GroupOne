@@ -1,0 +1,32 @@
+/* General Styles */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f8f9fa;
+}
+
+/* Profile Picture */
+#profilePicture {
+    border: 3px solid #007bff;
+    object-fit: cover;
+}
+
+/* User Info */
+h3, p {
+    color: #343a40;
+}
+
+/* Listings Section */
+#userListings {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.list-group-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.list-group-item button {
+    margin-left: 10px;
+}

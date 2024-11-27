@@ -20,6 +20,40 @@ mongoose.connect(url, { useNewUrlParser: true, useUnifiedTopology: true })
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
+const session = require('express-session');
+
+app.use(session({
+    secret: 'SecretKey',
+    resave: false,
+    saveUninitialized: true,
+}));
+
+function isAuthenticated(req, res, next) {
+    if (req.session && req.session.user) {
+        // User is authenticated, proceed to the next middleware or route
+        next();
+    } else {
+        // User is not authenticated, redirect to the home page
+        res.redirect('/');
+    }
+}
+
+// Routing
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/home.html'));
+});
+
+app.get('/frontPage', isAuthenticated, (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/frontPage.html'));
+});
+
+
+app.get('/createListing', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/createListing.html'));
+});
+
+
+// Listing Model
 const listingSchema = new mongoose.Schema({
     title: { type: String, required: true },
     description: { type: String, required: true },
@@ -30,14 +64,8 @@ const listingSchema = new mongoose.Schema({
 
 const Listing = mongoose.model('Listing', listingSchema);
 
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/frontpage.html'));
-});
-
-app.get('/createListing', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/createListing.html'));
-});
-
+// Routes for Listing
+// Route to display listings
 app.get('/api/listings', async (req, res) => {
     try {
         const listing = await Listing.find();
@@ -54,6 +82,7 @@ app.get('/api/listings', async (req, res) => {
     }
 });
 
+// Route to create listing
 app.post('/createListing', upload.single('image'), (req, res) => {
     const newListing = new Listing({
         title: req.body.title,
@@ -70,6 +99,118 @@ app.post('/createListing', upload.single('image'), (req, res) => {
             res.status(400).send('Error creating listing: ' + err.message);
         });
 });
+
+// User Model
+const userSchema = new mongoose.Schema({
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+});
+
+const User = mongoose.model('User', userSchema);
+
+// Route for Users
+app.post('/signup', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        if (!email.endsWith('@students.towson.edu')) {
+            return res.status(400).send('Invalid email. Must be a TU email.');
+        }
+        const newUser = new User({ email, password });
+        await newUser.save();
+        res.status(201).send('User signed up successfully!');
+
+        // Redirect to front page
+        // res.redirect('/frontPage');
+    } catch (err) {
+        console.error(err);
+        res.status(400).send('Error signing up: ' + err.message);
+    }
+});
+
+// Route for user login
+app.post('/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const user = await User.findOne({ email });
+        if (!user || user.password !== password) {
+            return res.status(401).send('Invalid credentials');
+        }
+
+        // Save user info to session
+        req.session.user = { email };
+
+        res.status(200).send('Login successful!');
+
+        // Redirect to front page
+        //res.redirect('/frontPage');
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error logging in: ' + err.message);
+    }
+});
+
+app.get('/logout', (req, res) => {
+    req.session.destroy(err => {
+        if (err) {
+            return res.status(500).send('Error logging out');
+        }
+        res.redirect('/home');
+    });
+});
+
+// Routes for Profile
+app.get('/api/user/profile', (req, res) => {
+    if (req.session && req.session.user) {
+        const email = req.session.user.email;
+
+        User.findOne({ email })
+            .then(user => {
+                res.json({
+                    name: user.name || 'John Doe',
+                    email: user.email,
+                    listings: [] // Include logic to fetch user-specific listings
+                });
+            })
+            .catch(err => res.status(500).send('Error fetching profile: ' + err.message));
+    } else {
+        res.status(401).send('Unauthorized');
+    }
+});
+
+app.post('/api/user/profile/update', (req, res) => {
+    if (req.session && req.session.user) {
+        const email = req.session.user.email;
+
+        User.findOneAndUpdate({ email }, req.body, { new: true })
+            .then(updatedUser => {
+                res.json({ message: 'Profile updated successfully!', user: updatedUser });
+            })
+            .catch(err => res.status(500).send('Error updating profile: ' + err.message));
+    } else {
+        res.status(401).send('Unauthorized');
+    }
+});
+
+app.get('/api/user/listings', (req, res) => {
+    if (req.session && req.session.user) {
+        const email = req.session.user.email;
+
+        Listing.find({ contactInfo: email })
+            .then(listings => res.json(listings))
+            .catch(err => res.status(500).send('Error fetching listings: ' + err.message));
+    } else {
+        res.status(401).send('Unauthorized');
+    }
+});
+
+app.get('/api/user', (req, res) => {
+    if (req.session && req.session.user) {
+        res.json({ loggedIn: true, user: req.session.user });
+    } else {
+        res.json({ loggedIn: false });
+    }
+});
+
 
 app.listen(port, () => {
     console.log(`Dorm Dash app is listening at http://localhost:${port}`);
