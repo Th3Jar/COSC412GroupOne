@@ -4,12 +4,6 @@ body {
     background-color: #f8f9fa;
 }
 
-/* Profile Picture */
-#profilePicture {
-    border: 3px solid #007bff;
-    object-fit: cover;
-}
-
 /* User Info */
 h3, p {
     color: #343a40;
@@ -29,4 +23,34 @@ h3, p {
 
 .list-group-item button {
     margin-left: 10px;
+}
+
+/* Modal styling */
+.modal-header {
+    background-color: #555555;
+    color: white;
+}
+
+/* Reservations */
+.reservation-item {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+}
+
+.reservation-item h5 {
+    font-weight: bold;
+    color: #333;
+}
+
+.reservation-item p {
+    margin: 0;
+    color: #555;
+}
+
+#userListings p.text-muted {
+    font-size: 1rem;
+    text-align: center;
+    margin: 1rem 0;
+    color: #6c757d;
 }

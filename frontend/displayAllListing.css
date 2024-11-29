@@ -84,7 +84,7 @@ a:hover {
 }
 
 .contactBtn {
-    background-color: #007bff;
+    background-color: #555;
     color: #fff;
     border: none;
     padding: 10px 15px;
@@ -94,5 +94,27 @@ a:hover {
 }
 
 .contactBtn:hover {
-    background-color: #0056b3;
+    background-color: #555;
+}
+
+/* Search Styling */
+.input-group {
+    max-width: 600px;
+    margin: 0 auto 20px auto;
+}
+
+#searchBar {
+    border: 1px solid #ccc;
+    border-right: none;
+}
+
+#searchButton {
+    background-color: #555;
+    color: white;
+    border: 1px solid #555;
+}
+
+#searchButton:hover {
+    background-color: #333;
+    border-color: #333;
 }

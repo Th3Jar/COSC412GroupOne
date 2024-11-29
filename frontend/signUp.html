@@ -14,8 +14,17 @@
     <h1>Sign Up</h1>
     <p>Sign up with your TU email.</p>
     <form name="signUpForm" onsubmit="return validateForm(event)">
-    <label for="email">Email:</label>
+        <label for="fullName">Full Name:</label>
+        <input type="text" id="fullName" name="fullName" required placeholder="Enter your full name">
+
+        <label for="email">Email:</label>
         <input type="email" id="email" name="email" required placeholder="Enter your TU email">
+
+        <label for="cashApp" class="form-label">CashApp Username</label>
+        <input type="text" class="form-control" id="cashApp" name="cashApp" placeholder="$yourUsername">
+
+        <label for="venmo" class="form-label">Venmo Username</label>
+        <input type="text" class="form-control" id="venmo" name="venmo" placeholder="@yourUsername">
 
         <label for="password">Password:</label>
         <input type="password" id="password" name="password" required placeholder="Enter your password">
