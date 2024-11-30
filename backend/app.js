@@ -18,7 +18,8 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Serve u
 // --------------------------------------
 // 2. Database Connection
 // --------------------------------------
-const url = "mongodb+srv://cedesjohn56:Minecraft5656@cluster0.dkrye.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+// const url = "mongodb+srv://cedesjohn56:Minecraft5656@cluster0.dkrye.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const url = "mongodb+srv://towsontaitusinse:Towson123@dormdash.tm6z7.mongodb.net/?retryWrites=true&w=majority&appName=DormDash";
 
 mongoose.connect(url, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("Connected to MongoDB!"))
@@ -130,6 +131,7 @@ const listingSchema = new mongoose.Schema({
     // Email of the seller who created the listing
     // Used to associate the listing with the seller
     user: { type: String, required: true },
+    // user: { type: mongoose.Schema.Types.ObjectId, ref: 'User'},
 
     // Indicates whether the item is reserved
     // Default: false (item is available for reservation)
@@ -233,6 +235,30 @@ const userSchema = new mongoose.Schema({
 // This creates a MongoDB collection named "Users" (pluralized form of "User")
 const User = mongoose.model('User', userSchema);
 
+
+// Review Schema
+const reviewSchema = new mongoose.Schema({
+    // Seller being reviewed (referenced by email or ID)
+    sellerEmail: { type: String, required: true },
+
+    // Buyer leaving the review (referenced by email)
+    reviewerEmail: { type: String, required: true },
+
+    // Numeric rating (1–5)
+    rating: { type: Number, required: true, min: 1, max: 5 },
+
+    // Optional text comment
+    comment: { type: String, default: '' },
+
+    // Timestamp of when the review was created
+    date: { type: Date, default: Date.now },
+
+    transactionId: { type: String, required: true }, // Transaction ID the review is tied to
+});
+
+// Create Review model
+const Review = mongoose.model('Review', reviewSchema);
+
 // --------------------------------------
 // Other Routes
 // --------------------------------------
@@ -245,11 +271,13 @@ const User = mongoose.model('User', userSchema);
 
 app.get('/api/listings', async (req, res) => {
     try {
-        // Retrieve the search query from the request, defaulting to an empty string if not provided
-        const searchQuery = req.query.search || '';
+        const searchQuery = req.query.search || ''; // Retrieve the search query from request, default to an empty string
 
-        // Fetch listings from the database matching the search query
+        // Fetch listings from the database
+        // - Filter by unreserved items (`reserved: false`)
+        // - Search by title or description matching the query
         const listings = await Listing.find({
+            reserved: false, // Ensure only unreserved items are fetched
             $or: [
                 {
                     title: {
@@ -266,28 +294,31 @@ app.get('/api/listings', async (req, res) => {
             ]
         });
 
-        // Transform listings to include necessary fields, including image processing
-        const listingsWithImg = listings.map(listing => ({
-            _id: listing._id, // Unique identifier for the listing
-            title: listing.title, // Title of the listing
-            description: listing.description, // Description of the listing
-            price: listing.price, // Price of the item
-            condition: listing.condition, // Condition of the item (e.g., "New", "Used")
-            location: listing.location, // Location or meetup details
-            contactInfo: listing.contactInfo, // Seller's contact information
-            image: listing.image
-                ? `data:${listing.imageType};base64,${listing.image.toString('base64')}` // Convert binary image to Base64
-                : null // If no image exists, set to null
-        }));
+        // Enrich listings with seller names
+        const Listings = await Promise.all(
+            listings.map(async (listing) => {
+                // Find the seller's name based on the email in the `user` field
+                const seller = await User.findOne({ email: listing.user });
+                return {
+                    _id: listing._id,
+                    title: listing.title,
+                    description: listing.description,
+                    price: listing.price,
+                    condition: listing.condition,
+                    location: listing.location,
+                    contactInfo: listing.contactInfo,
+                    image: listing.image
+                        ? `data:${listing.imageType};base64,${listing.image.toString('base64')}`
+                        : null,
+                    sellerName: seller ? seller.name : 'Unknown', // Default to 'Unknown' if seller not found
+                };
+            })
+        );
 
-        // Send the transformed listings as a JSON response to the client
-        res.json(listingsWithImg);
+        res.json(Listings);
     } catch (err) {
-        // Log any errors to the server console for debugging
-        console.error(err);
-
-        // Respond with a 500 status code and an error message
-        res.status(500).send('Error fetching listings');
+        console.error('Error fetching listings:', err); // Log any server errors
+        res.status(500).send('Error fetching listings'); // Respond with a 500 status if an error occurs
     }
 });
 
@@ -626,7 +657,7 @@ app.post('/api/user/profile/update', isAuthenticated, async (req, res) => {
 
 // ------------------------------------------------------------------------
 // Route: GET /api/user/listings
-// Purpose: Fetch all listings created by the currently logged-in user
+// Purpose: Fetch all listings
 // Middleware: isAuthenticated - Ensures only logged-in users can access this route
 // ------------------------------------------------------------------------
 
@@ -957,7 +988,7 @@ app.post('/api/listings/markAsReceived', isAuthenticated, async (req, res) => {
         // Step 2: Mark the listing as completed
         listing.paymentStatus = 'completed'; // Update payment status to "completed"
         listing.completed = true; // Mark the order as completed
-        listing.reserved = false; // Remove the reservation status
+        // listing.reserved = false; // Remove the reservation status
         await listing.save(); // Save the updated listing to the database
 
         // Step 3: Get the buyer's email from the listing
@@ -1022,7 +1053,7 @@ app.get('/api/user/orderHistory', isAuthenticated, async (req, res) => {
         // Step 3: Transform the order history with enriched details for the frontend
         const enrichedOrderHistory = seller.orderHistory.map(order => ({
             listingTitle: order.listingId?.title || 'Unknown Listing', // Use listing title if available, else "Unknown Listing"
-            buyerName: order.buyerName || 'Unknown Buyer', // Use buyer's name if available, else "Unknown Buyer"
+            buyerEmail: order.buyerEmail || 'Unknown Buyer', // Use buyer's name if available, else "Unknown Buyer"
             transactionId: order.transactionId, // Include transaction ID for the order
             completionDate: order.completionDate, // Include the completion date
         }));
@@ -1057,7 +1088,7 @@ app.get('/api/user/paymentHistory', isAuthenticated, async (req, res) => {
         // Step 3: Transform the payment history with enriched details for the frontend
         const enrichedPaymentHistory = buyer.paymentHistory.map(payment => ({
             listingTitle: payment.listingId?.title || 'Unknown Listing', // Use listing title if available, else "Unknown Listing"
-            sellerName: payment.listingId?.user || 'Unknown Seller', // Use seller's name if available, else "Unknown Seller"
+            sellerEmail: payment.sellerEmail || 'Unknown Seller', // Use sellerEmail directly
             transactionId: payment.transactionId, // Include transaction ID for the payment
             completionDate: payment.completionDate, // Include the payment completion date
         }));
@@ -1070,6 +1101,157 @@ app.get('/api/user/paymentHistory', isAuthenticated, async (req, res) => {
         res.status(500).send('Error fetching payment history'); // Respond with a 500 status for server errors
     }
 });
+
+// Backend Route: Delete a Listing
+app.delete('/api/listings/:id', isAuthenticated, async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        // Find and delete the listing
+        const listing = await Listing.findByIdAndDelete(id);
+        if (!listing) return res.status(404).send('Listing not found');
+
+        // Cascade delete: Remove listing from all users' payment history
+        await User.updateMany(
+            { 'paymentHistory.listingId': id },
+            { $pull: { paymentHistory: { listingId: id } } }
+        );
+
+        // Cascade delete: Remove listing from all users' reservations
+        await User.updateMany(
+            { 'reservations.listingId': id },
+            { $pull: { reservations: { listingId: id } } }
+        );
+
+        // Cascade delete: Remove listing from all users' carts
+        await User.updateMany(
+            { cart: id },
+            { $pull: { cart: id } }
+        );
+
+        res.status(200).send('Listing and related dependencies deleted successfully');
+    } catch (err) {
+        console.error('Error deleting listing:', err);
+        res.status(500).send('Error deleting listing');
+    }
+});
+
+// Route to add a review for a seller
+app.post('/api/user/reviews', isAuthenticated, async (req, res) => {
+    try {
+        // Extract review details from the request body
+        const { transactionId, sellerEmail, rating, comment } = req.body;
+
+        // Get the reviewer's email from the session (authenticated user)
+        const reviewerEmail = req.session.user.email;
+
+        // Validate inputs
+        if (!transactionId || !sellerEmail || !rating || rating < 1 || rating > 5) {
+            // Ensure the required fields are provided and rating is within valid range
+            return res.status(400).send('Invalid review data. Ensure all fields are provided and rating is between 1 and 5.');
+        }
+
+        // Check if the seller exists in the database
+        const seller = await User.findOne({ email: sellerEmail });
+        if (!seller) {
+            // If no seller is found with the given email, return a 404 error
+            return res.status(404).send('Seller not found.');
+        }
+
+        /* Check if the reviewer has already reviewed this seller
+        const existingReview = seller.reviews.find(
+            (review) => review.reviewerEmail === reviewerEmail
+        );
+        if (existingReview) {
+            // Prevent duplicate reviews from the same user
+            return res.status(400).send('You have already reviewed this seller.');
+        } */
+
+        // Ensure the review does not already exist for this transaction
+        const existingReview = await Review.findOne({ transactionId });
+        if (existingReview) {
+            return res.status(400).send('Review already exists for this transaction.');
+        }
+
+        // Create a new review document
+        const newReview = new Review({
+            transactionId,
+            sellerEmail,
+            reviewerEmail,
+            rating,
+            comment: comment || '', // Default to an empty string if no comment is provided
+        });
+
+        // Save the new review to the database
+        await newReview.save();
+
+        // Respond with a success message
+        res.status(201).send('Review added successfully.');
+    } catch (err) {
+        // Catch and log any server errors
+        console.error('Error adding review:', err);
+        res.status(500).send('An error occurred while adding the review.');
+    }
+});
+
+// Route to fetch reviews for a seller
+app.get('/api/user/reviews/:sellerEmail', async (req, res) => {
+    try {
+        // Extract the seller's email from the route parameters
+        const { sellerEmail } = req.params;
+
+        // Validate that the seller exists
+        const sellerExists = await User.findOne({ email: sellerEmail });
+        if (!sellerExists) {
+            // If no seller is found, respond with a 404 error
+            return res.status(404).send('Seller not found.');
+        }
+
+        // Fetch all reviews for the seller from the `Review` collection
+        const reviews = await Review.find({ sellerEmail }).sort({ date: -1 }); // Sort by most recent
+
+        // Check if there are any reviews
+        if (reviews.length === 0) {
+            // Return an empty array if no reviews are found
+            return res.status(200).json([]);
+        }
+
+        // Respond with the seller's reviews
+        res.status(200).json(reviews);
+    } catch (err) {
+        // Log any server errors for debugging
+        console.error('Error fetching reviews:', err);
+
+        // Respond with a generic 500 error message
+        res.status(500).send('An error occurred while fetching the reviews.');
+    }
+});
+
+// Route to fetch reviews for the logged-in seller
+app.get('/api/reviews/seller', isAuthenticated, async (req, res) => {
+    // Retrieve the email of the logged-in seller from the session
+    const sellerEmail = req.session.user.email;
+
+    try {
+        // Query the `Review` model to find all reviews for this seller
+        const reviews = await Review.find({ sellerEmail }).sort({ date: -1 }); // Sort by date (most recent first)
+
+        if (reviews.length === 0) {
+            // Return an empty array if no reviews are found
+            return res.status(200).json([]);
+        }
+
+        // Send the retrieved reviews as a JSON response
+        res.status(200).json(reviews);
+    } catch (err) {
+        // Log any errors for debugging purposes
+        console.error('Error fetching seller reviews:', err);
+
+        // Respond with a 500 error if something goes wrong on the server
+        res.status(500).send('An error occurred while fetching reviews.');
+    }
+});
+
 
 app.listen(port, () => {
     console.log(`Dorm Dash app is listening at http://localhost:${port}`);

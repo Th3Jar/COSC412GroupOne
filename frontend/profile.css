@@ -54,3 +54,13 @@ h3, p {
     margin: 1rem 0;
     color: #6c757d;
 }
+
+.review-item {
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
+.review-item h5 {
+    color: #f39c12;
+}
+

@@ -17,12 +17,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Display listings dynamically in the container
     function displayListings(filteredData) {
-        listingContainer.innerHTML = ''; // Clear the existing content
+        const listingContainer = document.getElementById('listingContainer');
+        listingContainer.innerHTML = ''; // Clear existing listings
 
         filteredData.forEach(listing => {
             // Create a responsive column for each listing
             const col = document.createElement('div');
             col.className = 'col-12 col-sm-6 col-md-3 mb-4'; // Bootstrap grid classes
+            col.setAttribute('data-id', listing._id); // Add unique identifier for dynamic updates
 
             // Create a card for each listing
             const card = document.createElement('div');
@@ -30,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Add listing image to the card
             const img = document.createElement('img');
-            img.src = listing.image ? listing.image : 'defaultImage.jpeg'; // Fallback to a default image
+            img.src = listing.image ? listing.image : 'defaultImage.jpeg'; // Fallback to a default image if no image exists
             img.alt = 'Listing Image'; // Alt text for accessibility
             img.className = 'card-img-top'; // Bootstrap class for card images
 
@@ -61,7 +63,12 @@ document.addEventListener('DOMContentLoaded', () => {
             // Add location
             const location = document.createElement('p');
             location.className = 'card-text';
-            location.innerHTML = `<strong>Location:</strong> ${listing.location || 'Not specified'}`;
+            location.innerHTML = `<strong>Pickup Location:</strong> ${listing.location || 'Not specified'}`;
+
+            // Add seller's name
+            const seller = document.createElement('p');
+            seller.className = 'card-text text-muted';
+            seller.innerHTML = `<strong>Seller:</strong> ${listing.sellerName || 'Anonymous'}`; // Display the seller's name or "Anonymous" if unavailable
 
             // Add "Reserve" button
             const reserveBtn = document.createElement('button');
@@ -70,12 +77,13 @@ document.addEventListener('DOMContentLoaded', () => {
             reserveBtn.onclick = () => handleReserve(listing._id); // Attach reserve handler
 
             // Append all elements to the card body
-            cardBody.appendChild(title);
-            cardBody.appendChild(description);
-            cardBody.appendChild(price);
-            cardBody.appendChild(condition);
-            cardBody.appendChild(location);
-            cardBody.appendChild(reserveBtn);
+            cardBody.appendChild(title); // Add title
+            cardBody.appendChild(description); // Add description
+            cardBody.appendChild(price); // Add price
+            cardBody.appendChild(condition); // Add condition
+            cardBody.appendChild(location); // Add location
+            cardBody.appendChild(seller); // Add seller's name
+            cardBody.appendChild(reserveBtn); // Add reserve button
 
             // Append the image and card body to the card
             card.appendChild(img);
@@ -99,9 +107,11 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(response => {
                 if (response.ok) {
                     alert('Item reserved successfully!'); // Notify the user of success
-                    // Optional: Remove the reserved item from the display
+                    // Dynamically remove the reserved item from the displayed listings
                     const reservedItem = document.querySelector(`[data-id="${listingId}"]`);
-                    if (reservedItem) reservedItem.remove();
+                    if (reservedItem) {
+                        reservedItem.remove(); // Remove the reserved item's DOM element
+                    }
                 } else {
                     alert('Failed to reserve item.'); // Notify the user of failure
                 }
