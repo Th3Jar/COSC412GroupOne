@@ -38,11 +38,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Create a container for action buttons
                 const actionButtons = document.createElement('div');
 
-                // "Edit" Button (Placeholder, not implemented here)
-                const editBtn = document.createElement('button');
-                editBtn.className = 'btn btn-outline-secondary btn-sm me-2'; // Add Bootstrap styles
-                editBtn.textContent = 'Edit';
-
                 // "Delete" Button
                 const deleteBtn = document.createElement('button');
                 deleteBtn.className = 'btn btn-outline-danger btn-sm'; // Add Bootstrap styles
@@ -50,7 +45,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 deleteBtn.onclick = () => handleDeleteListing(listing._id, listItem); // Attach event handler
 
                 // Append buttons to the action container
-                actionButtons.appendChild(editBtn);
                 actionButtons.appendChild(deleteBtn);
 
                 // Append title and action buttons to the list item
@@ -296,16 +290,31 @@ function handleDeleteListing(listingId, listItem) {
     })
         .then(async (response) => {
             if (!response.ok) {
-                const errorMessage = await response.text(); // Parse the error message
-                throw new Error(errorMessage); // Throw an error for further handling
+                // Parse the error message from the response
+                const errorMessage = await response.text();
+                throw new Error(errorMessage); // Throw the error for further handling
             }
-            alert('Listing deleted successfully!'); // Notify the user of success
+
+            // Notify the user of successful deletion
+            alert('Listing deleted successfully!');
+
             // Remove the list item from the UI
             listItem.remove();
         })
         .catch((err) => {
-            console.error('Error deleting listing:', err.message); // Log the error
-            alert(`Error: ${err.message}`); // Notify the user of the error
+            // Log and display error messages
+            console.error('Error deleting listing:', err.message);
+
+            // Display relevant error messages based on backend validation
+            if (err.message.includes('reserved')) {
+                alert('This listing cannot be deleted because it is reserved.');
+            } else if (err.message.includes('paid')) {
+                alert('This listing cannot be deleted because it has been paid for.');
+            } else if (err.message.includes('completed')) {
+                alert('This listing cannot be deleted because the transaction is completed.');
+            } else {
+                alert(`Error: ${err.message}`); // Generic error message for other cases
+            }
         });
 }
 

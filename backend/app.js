@@ -1130,29 +1130,50 @@ app.delete('/api/listings/:id', isAuthenticated, async (req, res) => {
     const { id } = req.params;
 
     try {
-        // Find and delete the listing
-        const listing = await Listing.findByIdAndDelete(id);
-        if (!listing) return res.status(404).send('Listing not found');
+        // Step 1: Fetch the listing by its ID
+        const listing = await Listing.findById(id);
 
-        // Cascade delete: Remove listing from all users' payment history
+        // Step 2: Check if the listing exists
+        if (!listing) {
+            return res.status(404).send('Listing not found');
+        }
+
+        // Step 3: Validate conditions for deletion
+        if (listing.completed) {
+            // Most restrictive condition: transaction is completed
+            return res.status(400).send('Listing cannot be deleted because the transaction is completed.');
+        }
+
+        if (listing.paymentStatus === 'paid' || listing.paymentStatus === 'completed') {
+            // Next most restrictive: payment has been made
+            return res.status(400).send('Listing cannot be deleted because it has been paid for.');
+        }
+
+        if (listing.reserved) {
+            // Least restrictive: reserved but not yet paid
+            return res.status(400).send('Listing cannot be deleted because it is reserved.');
+        }
+
+        // Step 4: Proceed with deletion if validation passes
+        await Listing.findByIdAndDelete(id);
+
+        // Cascade delete related dependencies
         await User.updateMany(
             { 'paymentHistory.listingId': id },
             { $pull: { paymentHistory: { listingId: id } } }
         );
 
-        // Cascade delete: Remove listing from all users' reservations
         await User.updateMany(
             { 'reservations.listingId': id },
             { $pull: { reservations: { listingId: id } } }
         );
 
-        // Cascade delete: Remove listing from all users' carts
         await User.updateMany(
             { cart: id },
             { $pull: { cart: id } }
         );
 
-        res.status(200).send('Listing and related dependencies deleted successfully');
+        res.status(200).send('Listing deleted successfully');
     } catch (err) {
         console.error('Error deleting listing:', err);
         res.status(500).send('Error deleting listing');
@@ -1180,15 +1201,6 @@ app.post('/api/user/reviews', isAuthenticated, async (req, res) => {
             // If no seller is found with the given email, return a 404 error
             return res.status(404).send('Seller not found.');
         }
-
-        /* Check if the reviewer has already reviewed this seller
-        const existingReview = seller.reviews.find(
-            (review) => review.reviewerEmail === reviewerEmail
-        );
-        if (existingReview) {
-            // Prevent duplicate reviews from the same user
-            return res.status(400).send('You have already reviewed this seller.');
-        } */
 
         // Ensure the review does not already exist for this transaction
         const existingReview = await Review.findOne({ transactionId });
@@ -1304,6 +1316,28 @@ app.get('/api/reviews/aggregate-ratings', async (req, res) => {
     } catch (err) {
         console.error('Error fetching aggregate ratings:', err);
         res.status(500).send('Error fetching aggregate ratings');
+    }
+});
+
+// Backend Route: Update a Listing
+app.put('/api/listings/:id', isAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    const { title, description, price, condition, location } = req.body;
+
+    try {
+        // Find and update the listing
+        const updatedListing = await Listing.findByIdAndUpdate(
+            id,
+            { title, description, price, condition, location },
+            { new: true, runValidators: true } // Return updated document and validate inputs
+        );
+
+        if (!updatedListing) return res.status(404).send('Listing not found');
+
+        res.status(200).json(updatedListing); // Respond with updated listing
+    } catch (err) {
+        console.error('Error updating listing:', err);
+        res.status(500).send('Error updating listing');
     }
 });
 
