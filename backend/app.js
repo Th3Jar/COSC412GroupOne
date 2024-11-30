@@ -294,11 +294,31 @@ app.get('/api/listings', async (req, res) => {
             ]
         });
 
-        // Enrich listings with seller names
+        // Fetch aggregate ratings
+        const aggregateRatings = await Review.aggregate([
+            {
+                $group: {
+                    _id: "$sellerEmail",
+                    averageRating: { $avg: "$rating" },
+                    reviewCount: { $sum: 1 }
+                }
+            }
+        ]);
+
+        // Convert ratings into a dictionary for easy lookup
+        const ratingMap = aggregateRatings.reduce((map, { _id, averageRating, reviewCount }) => {
+            map[_id] = { averageRating, reviewCount };
+            return map;
+        }, {});
+
         const Listings = await Promise.all(
             listings.map(async (listing) => {
                 // Find the seller's name based on the email in the `user` field
                 const seller = await User.findOne({ email: listing.user });
+                const sellerEmail = seller?.email || "Unknown";
+                const sellerName = seller?.name || "Unknown";
+                const ratings = ratingMap[sellerEmail] || { averageRating: null, reviewCount: 0 };
+
                 return {
                     _id: listing._id,
                     title: listing.title,
@@ -310,7 +330,10 @@ app.get('/api/listings', async (req, res) => {
                     image: listing.image
                         ? `data:${listing.imageType};base64,${listing.image.toString('base64')}`
                         : null,
-                    sellerName: seller ? seller.name : 'Unknown', // Default to 'Unknown' if seller not found
+                    sellerName,
+                    sellerEmail,
+                    averageRating: ratings.averageRating,
+                    reviewCount: ratings.reviewCount,
                 };
             })
         );
@@ -1249,6 +1272,38 @@ app.get('/api/reviews/seller', isAuthenticated, async (req, res) => {
 
         // Respond with a 500 error if something goes wrong on the server
         res.status(500).send('An error occurred while fetching reviews.');
+    }
+});
+
+// Route to fetch aggregate ratings for sellers
+app.get('/api/reviews/aggregate-ratings', async (req, res) => {
+    try {
+        // Use MongoDB aggregation to calculate average rating and review count
+        const aggregateRatings = await Review.aggregate([
+            {
+                // Group reviews by sellerEmail
+                $group: {
+                    _id: "$sellerEmail", // Group by sellerEmail
+                    averageRating: { $avg: "$rating" }, // Calculate average rating
+                    reviewCount: { $sum: 1 } // Count the number of reviews
+                }
+            },
+            {
+                // Format the output to rename _id to sellerEmail
+                $project: {
+                    sellerEmail: "$_id",
+                    averageRating: { $round: ["$averageRating", 1] }, // Round to 1 decimal place
+                    reviewCount: 1,
+                    _id: 0 // Exclude the _id field
+                }
+            }
+        ]);
+
+        // Send the aggregated ratings as JSON
+        res.json(aggregateRatings);
+    } catch (err) {
+        console.error('Error fetching aggregate ratings:', err);
+        res.status(500).send('Error fetching aggregate ratings');
     }
 });
 

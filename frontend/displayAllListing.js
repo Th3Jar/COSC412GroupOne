@@ -68,7 +68,16 @@ document.addEventListener('DOMContentLoaded', () => {
             // Add seller's name
             const seller = document.createElement('p');
             seller.className = 'card-text text-muted';
-            seller.innerHTML = `<strong>Seller:</strong> ${listing.sellerName || 'Anonymous'}`; // Display the seller's name or "Anonymous" if unavailable
+            seller.innerHTML = `<strong>Seller:</strong> ${listing.sellerName}`;
+
+            // Add aggregate rating
+            const rating = document.createElement("p");
+            rating.className = "card-text text-success";
+            if (listing.averageRating) {
+                rating.innerHTML = `<strong>Seller's Rating:</strong> ${listing.averageRating.toFixed(1)} (${listing.reviewCount} reviews)`;
+            } else {
+                rating.textContent = "Seller has had no reviews yet";
+            }
 
             // Add "Reserve" button
             const reserveBtn = document.createElement('button');
@@ -83,6 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
             cardBody.appendChild(condition); // Add condition
             cardBody.appendChild(location); // Add location
             cardBody.appendChild(seller); // Add seller's name
+            cardBody.appendChild(rating); // Add seller's rating
             cardBody.appendChild(reserveBtn); // Add reserve button
 
             // Append the image and card body to the card
