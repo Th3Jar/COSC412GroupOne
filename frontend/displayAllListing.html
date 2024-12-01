@@ -27,11 +27,18 @@
             </div>
         </div>
     </nav>
-    <div class="container py-4">
+    <div class="search-chat-container">
         <div class="input-group mb-3">
             <input type="text" id="searchBar" class="form-control" placeholder="Search for listings" aria-label="Search for listings">
             <button class="btn btn-outline-secondary" id="searchButton" type="button">Search</button>
         </div>
+    <div class="chat-container">
+        <div class="messages" id="messages"></div>
+        <input type="text" id="inputText" placeholder="Type for chatbot..." />
+        <button id="sendBtn">Send</button>
+      </div>
+    </div>
+      <script src="botScript.js"></script> <!-- Link to external JS -->
     </div>
     <div class="container">
         <div class="row" id="listingContainer">
