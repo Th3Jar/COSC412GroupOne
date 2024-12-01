@@ -1,5 +1,5 @@
 // API endpoint and your OpenAI API key
-const API_KEY = 'apiKey';
+const API_KEY = 'myKey';
 const API_URL = 'https://api.openai.com/v1/chat/completions';  // Update to GPT-4 endpoint
 
 // Function to display the message in the chatbox
@@ -29,7 +29,7 @@ async function getBotResponse(userMessage) {
             { role: 'user', content: userMessage }  // User input
           ],
           max_tokens: 60,
-          temperature: 0.7,
+          temperature: 0.1,
         }),
       });
   
