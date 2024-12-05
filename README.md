@@ -3,7 +3,7 @@
 **Team Members:**  
 - Connor Persaud  
 - Erik Umoh  
-- Tai Vadei  
+- Taitusi Vadei  
 - Jeryle Assension  
 
 ---
