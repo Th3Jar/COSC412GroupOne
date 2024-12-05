@@ -6,9 +6,10 @@ const path = require('path');
 const mongoose = require('mongoose');
 const multer = require('multer');
 const bodyParser = require('body-parser');
+require('dotenv').config();
 
 const app = express();
-const port = 3000;
+const PORT = process.env.PORT || 3000;
 
 // Middleware setup
 app.use(bodyParser.json());
@@ -18,10 +19,8 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Serve u
 // --------------------------------------
 // 2. Database Connection
 // --------------------------------------
-// const url = "mongodb+srv://cedesjohn56:Minecraft5656@cluster0.dkrye.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-const url = "mongodb+srv://towsontaitusinse:Towson123@dormdash.tm6z7.mongodb.net/?retryWrites=true&w=majority&appName=DormDash";
 
-mongoose.connect(url, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("Connected to MongoDB!"))
   .catch(err => console.error("Error connecting to MongoDB:", err));
 
@@ -43,7 +42,7 @@ const session = require('express-session');
 
 // Configure session middleware
 app.use(session({
-    secret: 'SecretKey', // Secret key for signing the session ID cookie (should be kept secure).
+    secret: process.env.SESSION_SECRET, // Secret key for signing the session ID cookie.
     resave: false, // Prevents session from being saved on each request if it hasn't been modified.
     saveUninitialized: true, // Saves a session even if it's new and has not been modified.
 }));
@@ -1125,17 +1124,25 @@ app.get('/api/user/paymentHistory', isAuthenticated, async (req, res) => {
     }
 });
 
-// Backend Route: Delete a Listing
+// -----------------------------------------------------------------------------
+// Route: DELETE /api/listings/:id
+// Middleware: isAuthenticated
+// Purpose: Delete a listing by its ID, validate deletion conditions, and
+//          cascade delete related dependencies like reservations, cart entries,
+//          and payment history.
+// -----------------------------------------------------------------------------
+
 app.delete('/api/listings/:id', isAuthenticated, async (req, res) => {
+    // Extract the listing ID from the route parameters
     const { id } = req.params;
 
     try {
         // Step 1: Fetch the listing by its ID
-        const listing = await Listing.findById(id);
+        const listing = await Listing.findById(id); // Retrieve the listing document from the database
 
         // Step 2: Check if the listing exists
         if (!listing) {
-            return res.status(404).send('Listing not found');
+            return res.status(404).send('Listing not found'); // Respond with 404 if the listing is not found
         }
 
         // Step 3: Validate conditions for deletion
@@ -1155,193 +1162,240 @@ app.delete('/api/listings/:id', isAuthenticated, async (req, res) => {
         }
 
         // Step 4: Proceed with deletion if validation passes
-        await Listing.findByIdAndDelete(id);
+        await Listing.findByIdAndDelete(id); // Delete the listing document from the database
 
-        // Cascade delete related dependencies
+        // Step 5: Cascade delete related dependencies
+        // Remove the listing from the payment history of all users
         await User.updateMany(
-            { 'paymentHistory.listingId': id },
-            { $pull: { paymentHistory: { listingId: id } } }
+            { 'paymentHistory.listingId': id }, // Match users with the listing in their payment history
+            { $pull: { paymentHistory: { listingId: id } } } // Remove the specific payment history entry
         );
 
+        // Remove the listing from the reservations of all users
         await User.updateMany(
-            { 'reservations.listingId': id },
-            { $pull: { reservations: { listingId: id } } }
+            { 'reservations.listingId': id }, // Match users with the listing in their reservations
+            { $pull: { reservations: { listingId: id } } } // Remove the specific reservation entry
         );
 
+        // Remove the listing from the cart of all users
         await User.updateMany(
-            { cart: id },
-            { $pull: { cart: id } }
+            { cart: id }, // Match users with the listing in their cart
+            { $pull: { cart: id } } // Remove the listing from the cart array
         );
 
-        res.status(200).send('Listing deleted successfully');
+        // Step 6: Respond with a success message
+        res.status(200).send('Listing deleted successfully'); // Indicate successful deletion
     } catch (err) {
+        // Log the error and respond with a 500 Internal Server Error
         console.error('Error deleting listing:', err);
         res.status(500).send('Error deleting listing');
     }
 });
 
-// Route to add a review for a seller
+// -----------------------------------------------------------------------------
+// Route: POST /api/user/reviews
+// Middleware: isAuthenticated
+// Purpose: Allow an authenticated user to add a review for a seller. The review
+//          includes details like transaction ID, seller email, rating, and an
+//          optional comment. Validates input, prevents duplicate reviews, and
+//          saves the review to the database.
+// -----------------------------------------------------------------------------
+
 app.post('/api/user/reviews', isAuthenticated, async (req, res) => {
     try {
-        // Extract review details from the request body
+        // Step 1: Extract review details from the request body
         const { transactionId, sellerEmail, rating, comment } = req.body;
 
-        // Get the reviewer's email from the session (authenticated user)
-        const reviewerEmail = req.session.user.email;
+        // Step 2: Get the reviewer's email from the session (authenticated user)
+        const reviewerEmail = req.session.user.email; // Retrieve the authenticated user's email
 
-        // Validate inputs
+        // Step 3: Validate inputs
         if (!transactionId || !sellerEmail || !rating || rating < 1 || rating > 5) {
-            // Ensure the required fields are provided and rating is within valid range
+            // Ensure all required fields are provided and rating is within the range of 1 to 5
             return res.status(400).send('Invalid review data. Ensure all fields are provided and rating is between 1 and 5.');
         }
 
-        // Check if the seller exists in the database
-        const seller = await User.findOne({ email: sellerEmail });
+        // Step 4: Check if the seller exists in the database
+        const seller = await User.findOne({ email: sellerEmail }); // Find the seller by their email
         if (!seller) {
-            // If no seller is found with the given email, return a 404 error
+            // Respond with 404 if the seller is not found
             return res.status(404).send('Seller not found.');
         }
 
-        // Ensure the review does not already exist for this transaction
-        const existingReview = await Review.findOne({ transactionId });
+        // Step 5: Ensure the review does not already exist for this transaction
+        const existingReview = await Review.findOne({ transactionId }); // Check for existing reviews for the transaction
         if (existingReview) {
             return res.status(400).send('Review already exists for this transaction.');
         }
 
-        // Create a new review document
+        // Step 6: Create a new review document
         const newReview = new Review({
-            transactionId,
-            sellerEmail,
-            reviewerEmail,
-            rating,
-            comment: comment || '', // Default to an empty string if no comment is provided
+            transactionId, // Unique identifier for the transaction
+            sellerEmail, // Email of the seller being reviewed
+            reviewerEmail, // Email of the user submitting the review
+            rating, // Numeric rating given by the reviewer
+            comment: comment || '', // Optional comment (default to an empty string if not provided)
         });
 
-        // Save the new review to the database
-        await newReview.save();
+        // Step 7: Save the new review to the database
+        await newReview.save(); // Persist the review document to the database
 
-        // Respond with a success message
-        res.status(201).send('Review added successfully.');
+        // Step 8: Respond with a success message
+        res.status(201).send('Review added successfully.'); // Indicate that the review was created successfully
     } catch (err) {
-        // Catch and log any server errors
-        console.error('Error adding review:', err);
-        res.status(500).send('An error occurred while adding the review.');
+        // Step 9: Handle and log server errors
+        console.error('Error adding review:', err); // Log the error for debugging
+        res.status(500).send('An error occurred while adding the review.'); // Respond with a generic error message
     }
 });
 
-// Route to fetch reviews for a seller
+// -----------------------------------------------------------------------------
+// Route: GET /api/user/reviews/:sellerEmail
+// Purpose: Fetch all reviews for a specific seller identified by their email.
+//          Validates the seller's existence before querying the reviews and
+//          returns reviews sorted by most recent first.
+// -----------------------------------------------------------------------------
+
 app.get('/api/user/reviews/:sellerEmail', async (req, res) => {
     try {
-        // Extract the seller's email from the route parameters
-        const { sellerEmail } = req.params;
+        // Step 1: Extract the seller's email from the route parameters
+        const { sellerEmail } = req.params; // Get the seller's email from the URL
 
-        // Validate that the seller exists
-        const sellerExists = await User.findOne({ email: sellerEmail });
+        // Step 2: Validate that the seller exists
+        const sellerExists = await User.findOne({ email: sellerEmail }); // Check if the seller exists in the database
         if (!sellerExists) {
-            // If no seller is found, respond with a 404 error
+            // Respond with 404 if the seller does not exist
             return res.status(404).send('Seller not found.');
         }
 
-        // Fetch all reviews for the seller from the `Review` collection
-        const reviews = await Review.find({ sellerEmail }).sort({ date: -1 }); // Sort by most recent
+        // Step 3: Fetch all reviews for the seller
+        const reviews = await Review.find({ sellerEmail }) // Query reviews for the given seller's email
+            .sort({ date: -1 }); // Sort reviews by date in descending order (most recent first)
 
-        // Check if there are any reviews
+        // Step 4: Check if there are any reviews
         if (reviews.length === 0) {
-            // Return an empty array if no reviews are found
+            // If no reviews exist, respond with an empty array
             return res.status(200).json([]);
         }
 
-        // Respond with the seller's reviews
-        res.status(200).json(reviews);
+        // Step 5: Respond with the seller's reviews
+        res.status(200).json(reviews); // Return the reviews as a JSON response
     } catch (err) {
-        // Log any server errors for debugging
-        console.error('Error fetching reviews:', err);
-
-        // Respond with a generic 500 error message
-        res.status(500).send('An error occurred while fetching the reviews.');
+        // Step 6: Handle and log server errors
+        console.error('Error fetching reviews:', err); // Log the error for debugging
+        res.status(500).send('An error occurred while fetching the reviews.'); // Respond with a 500 Internal Server Error
     }
 });
 
-// Route to fetch reviews for the logged-in seller
+// -----------------------------------------------------------------------------
+// Route: GET /api/reviews/seller
+// Middleware: isAuthenticated
+// Purpose: Fetch all reviews for the currently logged-in seller. Validates the
+//          seller's identity using the session and returns reviews sorted by
+//          most recent first.
+// -----------------------------------------------------------------------------
+
 app.get('/api/reviews/seller', isAuthenticated, async (req, res) => {
-    // Retrieve the email of the logged-in seller from the session
-    const sellerEmail = req.session.user.email;
+    // Step 1: Retrieve the email of the logged-in seller from the session
+    const sellerEmail = req.session.user.email; // Extract the authenticated seller's email from the session data
 
     try {
-        // Query the `Review` model to find all reviews for this seller
-        const reviews = await Review.find({ sellerEmail }).sort({ date: -1 }); // Sort by date (most recent first)
+        // Step 2: Query the `Review` model to find all reviews for the seller
+        const reviews = await Review.find({ sellerEmail }) // Fetch reviews matching the seller's email
+            .sort({ date: -1 }); // Sort reviews by date in descending order (most recent first)
 
+        // Step 3: Check if there are any reviews
         if (reviews.length === 0) {
-            // Return an empty array if no reviews are found
+            // If no reviews exist, respond with an empty array
             return res.status(200).json([]);
         }
 
-        // Send the retrieved reviews as a JSON response
-        res.status(200).json(reviews);
+        // Step 4: Respond with the retrieved reviews
+        res.status(200).json(reviews); // Send the reviews as a JSON response
     } catch (err) {
-        // Log any errors for debugging purposes
-        console.error('Error fetching seller reviews:', err);
-
-        // Respond with a 500 error if something goes wrong on the server
-        res.status(500).send('An error occurred while fetching reviews.');
+        // Step 5: Handle and log server errors
+        console.error('Error fetching seller reviews:', err); // Log the error for debugging
+        res.status(500).send('An error occurred while fetching reviews.'); // Respond with a 500 Internal Server Error
     }
 });
 
-// Route to fetch aggregate ratings for sellers
+// -----------------------------------------------------------------------------
+// Route: GET /api/reviews/aggregate-ratings
+// Purpose: Fetch aggregate ratings for sellers, including the average rating
+//          and total number of reviews for each seller. Uses MongoDB aggregation
+//          to compute and format the results.
+// -----------------------------------------------------------------------------
+
 app.get('/api/reviews/aggregate-ratings', async (req, res) => {
     try {
-        // Use MongoDB aggregation to calculate average rating and review count
+        // Step 1: Use MongoDB aggregation to calculate average rating and review count
         const aggregateRatings = await Review.aggregate([
             {
                 // Group reviews by sellerEmail
                 $group: {
                     _id: "$sellerEmail", // Group by sellerEmail
-                    averageRating: { $avg: "$rating" }, // Calculate average rating
-                    reviewCount: { $sum: 1 } // Count the number of reviews
+                    averageRating: { $avg: "$rating" }, // Calculate average rating of reviews
+                    reviewCount: { $sum: 1 } // Count the total number of reviews for each seller
                 }
             },
             {
-                // Format the output to rename _id to sellerEmail
+                // Step 2: Format the output to rename _id to sellerEmail
                 $project: {
-                    sellerEmail: "$_id",
-                    averageRating: { $round: ["$averageRating", 1] }, // Round to 1 decimal place
-                    reviewCount: 1,
-                    _id: 0 // Exclude the _id field
+                    sellerEmail: "$_id", // Rename _id to sellerEmail for clarity
+                    averageRating: { $round: ["$averageRating", 1] }, // Round average rating to 1 decimal place
+                    reviewCount: 1, // Include the count of reviews
+                    _id: 0 // Exclude the _id field from the output
                 }
             }
         ]);
 
-        // Send the aggregated ratings as JSON
-        res.json(aggregateRatings);
+        // Step 3: Respond with the aggregated ratings
+        res.json(aggregateRatings); // Send the aggregated results as JSON
     } catch (err) {
-        console.error('Error fetching aggregate ratings:', err);
-        res.status(500).send('Error fetching aggregate ratings');
+        // Step 4: Handle and log server errors
+        console.error('Error fetching aggregate ratings:', err); // Log the error for debugging
+        res.status(500).send('Error fetching aggregate ratings'); // Respond with a 500 Internal Server Error
     }
 });
 
-// Backend Route: Update a Listing
+// -----------------------------------------------------------------------------
+// Route: PUT /api/listings/:id
+// Middleware: isAuthenticated
+// Purpose: Update an existing listing by its ID. Accepts new values for title,
+//          description, price, condition, and location. Returns the updated
+//          listing or an error if the update fails.
+// -----------------------------------------------------------------------------
+
 app.put('/api/listings/:id', isAuthenticated, async (req, res) => {
-    const { id } = req.params;
-    const { title, description, price, condition, location } = req.body;
+    // Step 1: Extract the listing ID from the route parameters
+    const { id } = req.params; // Get the listing ID from the URL
+
+    // Step 2: Extract the updated listing details from the request body
+    const { title, description, price, condition, location } = req.body; // Extract fields to be updated
 
     try {
-        // Find and update the listing
+        // Step 3: Find the listing by its ID and update it with the new values
         const updatedListing = await Listing.findByIdAndUpdate(
-            id,
-            { title, description, price, condition, location },
-            { new: true, runValidators: true } // Return updated document and validate inputs
+            id, // The ID of the listing to update
+            { title, description, price, condition, location }, // New values for the listing fields
+            { new: true, runValidators: true } // Options: return the updated document and validate the inputs
         );
 
-        if (!updatedListing) return res.status(404).send('Listing not found');
+        // Step 4: Check if the listing exists
+        if (!updatedListing) {
+            // Respond with 404 if the listing is not found
+            return res.status(404).send('Listing not found');
+        }
 
-        res.status(200).json(updatedListing); // Respond with updated listing
+        // Step 5: Respond with the updated listing
+        res.status(200).json(updatedListing); // Return the updated listing as a JSON response
     } catch (err) {
-        console.error('Error updating listing:', err);
-        res.status(500).send('Error updating listing');
+        // Step 6: Handle and log server errors
+        console.error('Error updating listing:', err); // Log the error for debugging
+        res.status(500).send('Error updating listing'); // Respond with a 500 Internal Server Error
     }
 });
 
-
-app.listen(port, () => {
-    console.log(`Dorm Dash app is listening at http://localhost:${port}`);
+app.listen(PORT, () => {
+    console.log(`Dorm Dash app is listening at http://localhost:${PORT}`);
 });
